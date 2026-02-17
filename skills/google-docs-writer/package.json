@@ -1,0 +1,11 @@
+{
+    "name": "google-docs-writer",
+    "version": "1.0.0",
+    "description": "Google Docs writing tools for OpenClaw",
+    "main": "index.js",
+    "type": "module",
+    "dependencies": {
+        "googleapis": "^134.0.0",
+        "google-auth-library": "^9.7.0"
+    }
+}

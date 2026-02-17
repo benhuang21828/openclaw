@@ -1,0 +1,8 @@
+{
+    "name": "deep-research",
+    "version": "1.0.0",
+    "description": "Deep research tool for OpenClaw using Google Custom Search",
+    "main": "index.js",
+    "type": "module",
+    "dependencies": {}
+}
