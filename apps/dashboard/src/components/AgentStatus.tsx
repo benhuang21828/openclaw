@@ -15,24 +15,26 @@ export function AgentStatus({ id, name, emoji, messages }: AgentStatusProps) {
     const [status, setStatus] = useState<"idle" | "working" | "error">("idle");
 
     useEffect(() => {
-        // Filter messages for this agent
-        const relevant = messages.filter(
-            (m) =>
-                m.type === "event" &&
-                m.event === "agent.log" &&
-                (m.payload.agentId === id || m.payload.source === id)
+        // Find messages from this agent
+        // The messages prop is now { timestamp, sender, content }[]
+        const myMessages = messages.filter(
+            (m) => m.sender === name || m.sender === id
         );
 
-        if (relevant.length > 0) {
-            const last = relevant[relevant.length - 1];
-            setLastLog(last.payload.message || JSON.stringify(last.payload));
-            setStatus("working");
+        if (myMessages.length > 0) {
+            const lastMsg = myMessages[myMessages.length - 1];
+            setLastLog(lastMsg.content);
 
-            // Auto-idle after 10s of no logs
-            const timer = setTimeout(() => setStatus("idle"), 10000);
-            return () => clearTimeout(timer);
+            // If the message is recent (within last 20 seconds), show working status
+            const msgTime = new Date(lastMsg.timestamp).getTime();
+            const now = Date.now();
+            if (now - msgTime < 20000) {
+                setStatus("working");
+            } else {
+                setStatus("idle");
+            }
         }
-    }, [messages, id]);
+    }, [messages, id, name]);
 
     return (
         <div className="border rounded-lg p-4 bg-zinc-900 border-zinc-800 text-zinc-100 flex flex-col gap-2">
@@ -48,7 +50,7 @@ export function AgentStatus({ id, name, emoji, messages }: AgentStatusProps) {
                 </div>
             </div>
 
-            <div className="bg-black/50 rounded p-2 text-xs font-mono h-24 overflow-y-auto text-green-400/80">
+            <div className="bg-black/50 rounded p-2 text-xs font-mono h-24 overflow-y-auto text-green-400/80 whitespace-pre-wrap">
                 {lastLog || <span className="text-zinc-600 italic">Waiting for activity...</span>}
             </div>
         </div>
