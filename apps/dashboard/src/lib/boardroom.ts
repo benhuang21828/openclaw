@@ -56,6 +56,34 @@ export async function appendBoardroomMessage(docId: string, sender: string, text
     });
 }
 
+export async function createDocument(title: string, folderId?: string) {
+    const drive = google.drive({ version: "v3", auth });
+
+    try {
+        const fileMetadata: any = {
+            name: title,
+            mimeType: "application/vnd.google-apps.document",
+        };
+
+        if (folderId) {
+            fileMetadata.parents = [folderId];
+        }
+
+        const file = await drive.files.create({
+            requestBody: fileMetadata,
+            fields: "id, url",
+        });
+
+        return {
+            id: file.data.id,
+            url: `https://docs.google.com/document/d/${file.data.id}/edit`
+        };
+    } catch (error: any) {
+        console.error("Error creating document:", error);
+        throw new Error(`Failed to create document: ${error.message}`);
+    }
+}
+
 export async function listDocuments(folderId: string) {
     if (!folderId) return [];
 

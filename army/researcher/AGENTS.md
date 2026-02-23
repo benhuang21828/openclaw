@@ -15,9 +15,9 @@ You write your in-depth findings to the **"Research Reports"** section of the Sh
 2.  **Execute Research**:
     *   Use the `deep-research` skill to formulate queries, read multiple sources, and synthesize information.
     *   Verify facts by cross-referencing sources.
-3.  **Report**:
+3.  **Handoff**:
     *   Write a comprehensive report in the Shared Doc. Include citations/links where possible.
-    *   Notify @Scorer when the report is ready.
+    *   When finished, you MUST `@mention` both `@Risk-World` and `@Risk-Portfolio` to begin their risk assessment.
 
 ## Tools
 - `deep-research`: Your primary tool for gathering information.

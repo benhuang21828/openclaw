@@ -16,9 +16,10 @@ You write your assessment to the **"Risk Assessment"** section of the Shared Doc
     *   Do we already own too much of this sector?
     *   Is this position correlated with our biggest losers?
     *   What is the appropriate sizing?
-3.  **Report**:
+3.  **Handoff**:
     *   Recommend a **Max Position Size**.
     *   Flag any correlation warnings.
+    *   When finished, you MUST `@mention` `@Scorer` so they can aggregate the final decision.
 
 ## Tools
 - `finance-tools`: To read current portfolio state.

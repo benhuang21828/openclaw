@@ -1,6 +1,9 @@
 {
   "defaults": {
-    "sandbox": { "mode": "all", "scope": "session" }
+    "sandbox": {
+      "mode": "all",
+      "scope": "session"
+    }
   },
   "list": [
     {
@@ -12,7 +15,11 @@
         "emoji": "🗣️",
         "theme": "helpful"
       },
-      "groupChat": { "mentionPatterns": ["@translator"] }
+      "groupChat": {
+        "mentionPatterns": [
+          "@translator"
+        ]
+      }
     },
     {
       "id": "monitor",
@@ -23,18 +30,41 @@
         "emoji": "📡",
         "theme": "observant"
       },
-      "groupChat": { "mentionPatterns": ["@monitor"] }
+      "groupChat": {
+        "mentionPatterns": [
+          "@monitor"
+        ]
+      }
+    },
+    {
+      "id": "equity-researcher",
+      "name": "Equity Researcher",
+      "workspace": "/root/clawd/army/equity-researcher",
+      "identity": {
+        "name": "Equity Researcher",
+        "emoji": "📊",
+        "theme": "analytical"
+      },
+      "groupChat": {
+        "mentionPatterns": [
+          "@equity-researcher"
+        ]
+      }
     },
     {
       "id": "researcher",
       "name": "Researcher",
       "workspace": "/root/clawd/army/researcher",
       "identity": {
-        "name": "Researcher",
+        "name": "Thesis Researcher",
         "emoji": "🔬",
         "theme": "analytical"
       },
-      "groupChat": { "mentionPatterns": ["@researcher"] }
+      "groupChat": {
+        "mentionPatterns": [
+          "@researcher"
+        ]
+      }
     },
     {
       "id": "risk-world",
@@ -45,7 +75,11 @@
         "emoji": "🌍",
         "theme": "cautious"
       },
-      "groupChat": { "mentionPatterns": ["@risk-world"] }
+      "groupChat": {
+        "mentionPatterns": [
+          "@risk-world"
+        ]
+      }
     },
     {
       "id": "risk-portfolio",
@@ -56,7 +90,11 @@
         "emoji": "💼",
         "theme": "cautious"
       },
-      "groupChat": { "mentionPatterns": ["@risk-portfolio"] }
+      "groupChat": {
+        "mentionPatterns": [
+          "@risk-portfolio"
+        ]
+      }
     },
     {
       "id": "scorer",
@@ -67,7 +105,11 @@
         "emoji": "⚖️",
         "theme": "decisive"
       },
-      "groupChat": { "mentionPatterns": ["@scorer"] }
+      "groupChat": {
+        "mentionPatterns": [
+          "@scorer"
+        ]
+      }
     }
   ]
 }

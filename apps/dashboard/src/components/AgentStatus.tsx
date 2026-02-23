@@ -15,6 +15,13 @@ export function AgentStatus({ id, name, emoji, messages }: AgentStatusProps) {
     const [status, setStatus] = useState<"idle" | "working" | "error">("idle");
 
     useEffect(() => {
+        // If the parent clears messages (e.g. New Session), reset our local state too
+        if (!messages || messages.length === 0) {
+            setLastLog("");
+            setStatus("idle");
+            return;
+        }
+
         // Find messages from this agent
         // The messages prop is now { timestamp, sender, content }[]
         const myMessages = messages.filter(
