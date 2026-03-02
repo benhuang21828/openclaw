@@ -3,7 +3,7 @@
 import { AgentStatus } from "../components/AgentStatus";
 import { BoardroomLogger } from "../components/BoardroomLogger";
 import { HoldingsManager } from "../components/HoldingsManager";
-import { MonitorControl } from "../components/MonitorControl";
+
 import { useState, useEffect } from "react";
 import { Play, Send, LayoutDashboard } from "lucide-react";
 
@@ -26,7 +26,11 @@ export default function Home() {
     const [newDocId, setNewDocId] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // Poll the Boardroom every 2 seconds
+    // Orchestrator State
+    const [activeContext, setActiveContext] = useState<string | null>(null);
+    const [orchState, setOrchState] = useState<any>(null);
+
+    // Poll the Boardroom every 2 seconds for document text
     useEffect(() => {
         const fetchBoardroom = async () => {
             try {
@@ -50,27 +54,78 @@ export default function Home() {
         return () => clearInterval(interval);
     }, []);
 
+    // Poll the Orchestrator state every 2 seconds if activeContext exists
+    useEffect(() => {
+        if (!activeContext) return;
+
+        const fetchOrchestrator = async () => {
+            try {
+                const res = await fetch(`/api/orchestrator?context_id=${activeContext}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setOrchState(data);
+                    if (data.status === "completed" || data.status === "error") {
+                        // Stop polling if complete
+                        setActiveContext(null);
+                    }
+                }
+            } catch (e) {
+                console.error("Orchestrator polling error", e);
+            }
+        };
+
+        // Fetch immediately, then setup interval
+        fetchOrchestrator();
+        const interval = setInterval(fetchOrchestrator, 2500);
+        return () => clearInterval(interval);
+    }, [activeContext]);
+
     const sendThesis = async () => {
         if (!thesis.trim()) return;
         try {
-            // Send direct message to doc
-            await fetch("/api/boardroom", {
+            // Trigger Orchestrator state machine
+            setIsSubmitting(true);
+            const res = await fetch("/api/orchestrator", {
                 method: "POST",
-                body: JSON.stringify({
-                    text: `@Translator ${thesis}`,
-                    sender: "User",
-                }),
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ thesis }),
             });
+            const data = await res.json();
+
+            if (data.contextId) {
+                setActiveContext(data.contextId);
+                setOrchState(data.state);
+            }
+
             setThesis("");
         } catch (e: any) {
-            console.error("Failed to send thesis", e);
-            alert("Failed to send: " + (e.message || String(e)));
+            console.error("Failed to start orchestrator", e);
+            alert("Failed to start orchestrator: " + (e.message || String(e)));
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
-    const startArmy = async () => {
-        // Just a visual trigger for now
-        console.log("Army Started");
+    const togglePause = async (action: "pause" | "resume") => {
+        if (!activeContext) return;
+        try {
+            const res = await fetch("/api/orchestrator/command", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ contextId: activeContext, command: action }),
+            });
+            if (res.ok) {
+                const data = await res.json();
+                if (orchState) {
+                    setOrchState({ ...orchState, status: data.status });
+                }
+            } else {
+                throw new Error("Command failed");
+            }
+        } catch (e) {
+            console.error(`Failed to ${action} orchestrator`, e);
+            alert(`Failed to ${action} orchestrator.`);
+        }
     };
 
     const submitNewSession = async () => {
@@ -164,22 +219,34 @@ export default function Home() {
                     >
                         Set Active Session
                     </button>
-                    <MonitorControl />
-                    <button
-                        onClick={startArmy}
-                        className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-md font-medium transition-colors"
-                    >
-                        <Play size={16} /> Start Operation
-                    </button>
+
+
                 </div>
             </header>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
                 {/* Thesis Injection Section - Left 2/3 */}
                 <div className="lg:col-span-2 bg-zinc-900 border border-zinc-800 rounded-xl p-6">
-                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-                        <Send size={20} className="text-blue-400" />
-                        Inject Thesis
+                    <h2 className="text-xl font-bold mb-4 flex items-center justify-between">
+                        <span className="flex items-center gap-2">
+                            <Send size={20} className="text-blue-400" />
+                            Inject Thesis
+                        </span>
+                        {orchState && orchState.status === "running" && (
+                            <span className="text-sm font-mono text-blue-300 bg-blue-900/40 px-3 py-1 rounded-full animate-pulse border border-blue-700/50">
+                                ORCHESTRATOR ACTIVE: {orchState.currentAgent.toUpperCase()} IS PROCESSING...
+                            </span>
+                        )}
+                        {orchState && orchState.status === "paused" && (
+                            <span className="text-sm font-mono text-yellow-400 bg-yellow-900/40 px-3 py-1 rounded-full border border-yellow-700/50">
+                                SWARM PAUSED
+                            </span>
+                        )}
+                        {orchState && orchState.status === "completed" && (
+                            <span className="text-sm font-mono text-green-400 bg-green-900/30 px-3 py-1 rounded-full border border-green-700/50">
+                                SWARM COMPLETED
+                            </span>
+                        )}
                     </h2>
                     <div className="flex gap-4">
                         <textarea
@@ -191,11 +258,27 @@ export default function Home() {
                         <div className="flex flex-col gap-2 w-32">
                             <button
                                 onClick={sendThesis}
-                                disabled={!isConnected || !thesis.trim()}
-                                className="w-full h-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-medium transition-colors"
+                                disabled={!isConnected || !thesis.trim() || isSubmitting}
+                                className="w-full flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-medium transition-colors"
                             >
                                 Dispatch
                             </button>
+                            {activeContext && orchState?.status === "running" && (
+                                <button
+                                    onClick={() => togglePause("pause")}
+                                    className="w-full py-2 bg-red-600/80 hover:bg-red-600 border border-red-500 rounded-lg font-medium transition-colors text-sm"
+                                >
+                                    Pause
+                                </button>
+                            )}
+                            {activeContext && orchState?.status === "paused" && (
+                                <button
+                                    onClick={() => togglePause("resume")}
+                                    className="w-full py-2 bg-yellow-600/80 hover:bg-yellow-600 border border-yellow-500 rounded-lg font-medium transition-colors text-sm"
+                                >
+                                    Resume
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -207,13 +290,21 @@ export default function Home() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-                {AGENTS.map((agent) => (
-                    <AgentStatus
-                        key={agent.id}
-                        {...agent}
-                        messages={messages}
-                    />
-                ))}
+                {AGENTS.map((agent) => {
+                    const isMyTurn = orchState?.currentAgent === agent.id;
+                    const isDone = orchState?.results?.[agent.id] !== undefined;
+
+                    return (
+                        <AgentStatus
+                            key={agent.id}
+                            {...agent}
+                            messages={messages}
+                            contextId={activeContext || orchState?.contextId} // Try to keep previous id for final logs
+                            isMyTurn={isMyTurn}
+                            isDone={isDone}
+                        />
+                    );
+                })}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

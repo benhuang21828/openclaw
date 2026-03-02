@@ -1,6 +1,0 @@
-name: Monitor
-model: gemini-2.0-flash-exp
-
-# Includes
-$include(SOUL.md)
-$include(AGENTS.md)

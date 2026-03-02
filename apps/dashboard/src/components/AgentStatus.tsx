@@ -8,22 +8,67 @@ interface AgentStatusProps {
     name: string;
     emoji: string;
     messages: any[]; // Stream of messages/events from gateway
+    contextId?: string;
+    isMyTurn?: boolean;
+    isDone?: boolean;
 }
 
-export function AgentStatus({ id, name, emoji, messages }: AgentStatusProps) {
+export function AgentStatus({ id, name, emoji, messages, contextId, isMyTurn, isDone }: AgentStatusProps) {
     const [lastLog, setLastLog] = useState<string>("");
-    const [status, setStatus] = useState<"idle" | "working" | "error">("idle");
+    const [status, setStatus] = useState<"idle" | "working" | "error" | "done">("idle");
+    const [scratchLogs, setScratchLogs] = useState<any[]>([]);
 
     useEffect(() => {
-        // If the parent clears messages (e.g. New Session), reset our local state too
-        if (!messages || messages.length === 0) {
-            setLastLog("");
+        if (isDone) {
+            setStatus("done");
+        } else if (isMyTurn) {
+            setStatus("working");
+        } else {
             setStatus("idle");
+        }
+    }, [isMyTurn, isDone]);
+
+    // Poll Scratchpad individually if there's a context and I am not done
+    useEffect(() => {
+        if (!contextId || isDone) return;
+
+        const pollScratchpad = async () => {
+            try {
+                const res = await fetch(`/api/scratchpad?context_id=${contextId}&agent=${id}`);
+                if (res.ok) {
+                    const logs = await res.json();
+                    if (Array.isArray(logs) && logs.length > 0) {
+                        setScratchLogs(logs);
+                    }
+                }
+            } catch (e) {
+                console.error("Scratchpad fetch error", e);
+            }
+        };
+
+        pollScratchpad();
+        const interval = setInterval(pollScratchpad, 2000);
+        return () => clearInterval(interval);
+    }, [contextId, id, isDone]);
+
+    // Format the display output
+    useEffect(() => {
+        // If we have scratchpad logs, show the most recent relevant one
+        if (scratchLogs.length > 0) {
+            const last = scratchLogs[scratchLogs.length - 1];
+            if (last.type === "start") setLastLog(`[${id}] starting task: ${last.data.task.substring(0, 40)}...`);
+            if (last.type === "tool_call") setLastLog(`Executing Skill: ${last.data.name}()`);
+            if (last.type === "tool_result") setLastLog(`Result received from ${last.data.name}. Processing...`);
+            if (last.type === "final_response") setLastLog(`Done! Final Result Generated.`);
             return;
         }
 
-        // Find messages from this agent
-        // The messages prop is now { timestamp, sender, content }[]
+        // Fallback to boardroom messages
+        if (!messages || messages.length === 0) {
+            setLastLog("");
+            return;
+        }
+
         const myMessages = messages.filter(
             (m) => m.sender === name || m.sender === id
         );
@@ -31,17 +76,8 @@ export function AgentStatus({ id, name, emoji, messages }: AgentStatusProps) {
         if (myMessages.length > 0) {
             const lastMsg = myMessages[myMessages.length - 1];
             setLastLog(lastMsg.content);
-
-            // If the message is recent (within last 20 seconds), show working status
-            const msgTime = new Date(lastMsg.timestamp).getTime();
-            const now = Date.now();
-            if (now - msgTime < 20000) {
-                setStatus("working");
-            } else {
-                setStatus("idle");
-            }
         }
-    }, [messages, id, name]);
+    }, [scratchLogs, messages, id, name]);
 
     return (
         <div className="border rounded-lg p-4 bg-zinc-900 border-zinc-800 text-zinc-100 flex flex-col gap-2">
@@ -52,7 +88,8 @@ export function AgentStatus({ id, name, emoji, messages }: AgentStatusProps) {
                 </div>
                 <div>
                     {status === "working" && <Activity className="text-blue-400 animate-pulse" />}
-                    {status === "idle" && <CheckCircle className="text-zinc-600" />}
+                    {status === "idle" && <Terminal className="text-zinc-600" />}
+                    {status === "done" && <CheckCircle className="text-green-500" />}
                     {status === "error" && <AlertCircle className="text-red-500" />}
                 </div>
             </div>
