@@ -91,7 +91,7 @@ export async function checkScratchpadFinished(contextId: string, agent: string):
 
 export function fireAgentAsync(agent: string, contextId: string, task: string, activeRunId?: string) {
     // Fire and forget fetch request to the OpenClaw standard API
-    const url = `${OPENCLAW_GATEWAY_URL}/`;
+    const url = `${OPENCLAW_GATEWAY_URL}/v1/chat/completions`;
     console.log(`Firing async request to ${url} for task: [${contextId}] against agent: ${agent}`);
 
     // We pass context_id and supabase_run_id into the task instruction or payload
@@ -99,21 +99,18 @@ export function fireAgentAsync(agent: string, contextId: string, task: string, a
     const instructionWithContext = `${task}\n\n[SYSTEM]: Your active Supabase RUN_ID for logging is: ${activeRunId}\nUse the 'log_activity' tool to record your milestones.`;
 
     const reqPayload = {
-        type: "req",
-        id: `orch-${contextId}-${agent}-${Date.now()}`,
-        method: "agent",
-        params: {
-            agentId: agent,
-            message: instructionWithContext,
-            idempotencyKey: `orch-${contextId}-${agent}`
-        }
+        model: `openclaw/${agent}`,
+        messages: [
+            { role: "user", content: instructionWithContext }
+        ]
     };
 
     fetch(url, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${process.env.OPENCLAW_GATEWAY_TOKEN || "moltfund-local-dev-token"}`
+            "Authorization": `Bearer ${process.env.OPENCLAW_GATEWAY_TOKEN || "moltfund-local-dev-token"}`,
+            "X-OpenClaw-Agent-Id": agent
         },
         body: JSON.stringify(reqPayload)
     }).catch(err => {
