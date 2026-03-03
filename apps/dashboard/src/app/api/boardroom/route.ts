@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getBoardroomMessages, appendBoardroomMessage } from "../../../lib/boardroom";
+import { supabase } from "../../../lib/supabase";
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 
 const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID;
@@ -40,10 +41,8 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
     try {
-        const docId = await getActiveDocId();
-        if (!docId) return NextResponse.json({ error: "Missing GOOGLE_DOC_ID" }, { status: 500 });
-
-        const messages = await getBoardroomMessages(docId);
+        // Return an empty array. The mission control UI now reads `run_activities` directly via Supabase.
+        const messages: any[] = [];
 
         // Fetch docs if folder ID is present
         let documents: any[] = [];

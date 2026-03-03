@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { AGENT_SEQUENCE, OrchestratorState, writeState, readState, checkScratchpadFinished, fireAgentAsync } from "../../../lib/orchestrator";
+import { supabase } from "../../../lib/supabase";
+import { Storage } from "@google-cloud/storage";
 
 // Force Node.js runtime
 export const runtime = "nodejs";
@@ -12,9 +14,46 @@ export async function POST(req: Request) {
 
         const contextId = `orchestra-${Date.now()}`;
 
+        let coordinator_file_url = "";
+        try {
+            if (process.env.GCS_BUCKET_NAME) {
+                const storage = new Storage({
+                    projectId: process.env.GCS_PROJECT_ID,
+                    credentials: {
+                        client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+                        private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+                    }
+                });
+                const bucket = storage.bucket(process.env.GCS_BUCKET_NAME);
+                const mdFile = bucket.file(`runs/${contextId}/coordinator.md`);
+                await mdFile.save(`# Mission Control Logs\n\n**Run ID:** ${contextId}\n**Thesis:**\n${thesis}\n\n---\n`);
+                coordinator_file_url = `https://storage.googleapis.com/${process.env.GCS_BUCKET_NAME}/runs/${contextId}/coordinator.md`;
+            }
+        } catch (storageErr) {
+            console.error("GCS Upload Error:", storageErr);
+        }
+
+        // Create Supabase run record logging the new thesis
+        let supabaseRunId: string | undefined;
+        try {
+            const { data, error } = await supabase.from('research_runs').insert({
+                thesis: thesis,
+                status: 'running',
+                coordinator_file_url: coordinator_file_url || null
+            }).select('id').single();
+            if (data?.id) {
+                supabaseRunId = data.id;
+            } else if (error) {
+                console.error("Supabase insert error", error);
+            }
+        } catch (dbErr) {
+            console.error("Failed to insert into Supabase", dbErr);
+        }
+
         // 1. Initialize State
         const initialState: OrchestratorState = {
             contextId,
+            supabaseRunId,
             thesis,
             currentAgent: AGENT_SEQUENCE[0], // Starts with translator
             status: "running",
@@ -24,7 +63,7 @@ export async function POST(req: Request) {
         await writeState(contextId, initialState);
 
         // 2. Fire the first agent in the background
-        fireAgentAsync(initialState.currentAgent, contextId, thesis);
+        fireAgentAsync(initialState.currentAgent, contextId, thesis, supabaseRunId);
 
         return NextResponse.json({ contextId, state: initialState });
     } catch (e: any) {
@@ -57,6 +96,9 @@ export async function GET(req: Request) {
         if (agentIdx === -1) {
             state.status = "error";
             await writeState(contextId, state);
+            if (state.supabaseRunId) {
+                await supabase.from('research_runs').update({ status: 'error' }).eq('id', state.supabaseRunId);
+            }
             return NextResponse.json(state);
         }
 
@@ -79,11 +121,14 @@ export async function GET(req: Request) {
                 await writeState(contextId, state);
 
                 // Fire next agent
-                fireAgentAsync(state.currentAgent, contextId, nextInstruction);
+                fireAgentAsync(state.currentAgent, contextId, nextInstruction, state.supabaseRunId);
             } else {
                 // We reached the end of the sequence!
                 state.status = "completed";
                 await writeState(contextId, state);
+                if (state.supabaseRunId) {
+                    await supabase.from('research_runs').update({ status: 'done' }).eq('id', state.supabaseRunId);
+                }
             }
         }
 

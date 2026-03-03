@@ -27,10 +27,11 @@ export const AGENT_SEQUENCE = [
     "scorer"
 ];
 
-const WORKER_BASE_URL = "https://moltbot-{agent}.benhuang21828.workers.dev";
+const OPENCLAW_GATEWAY_URL = process.env.NEXT_PUBLIC_OPENCLAW_GATEWAY_URL || "http://localhost:18789";
 
 export interface OrchestratorState {
     contextId: string;
+    supabaseRunId?: string; // Extensible link to the Supabase research_runs table
     thesis: string;
     currentAgent: string;
     status: "running" | "completed" | "error" | "paused";
@@ -88,15 +89,33 @@ export async function checkScratchpadFinished(contextId: string, agent: string):
     return null;
 }
 
-export function fireAgentAsync(agent: string, contextId: string, task: string) {
-    // Fire and forget fetch request
-    const url = WORKER_BASE_URL.replace("{agent}", agent);
-    console.log(`Firing async request to ${url} for task: [${contextId}]`);
+export function fireAgentAsync(agent: string, contextId: string, task: string, activeRunId?: string) {
+    // Fire and forget fetch request to the OpenClaw standard API
+    const url = `${OPENCLAW_GATEWAY_URL}/`;
+    console.log(`Firing async request to ${url} for task: [${contextId}] against agent: ${agent}`);
 
-    fetch(`${url}/invoke`, {
+    // We pass context_id and supabase_run_id into the task instruction or payload
+    // so the agent knows what to pass into the API when logging activity!
+    const instructionWithContext = `${task}\n\n[SYSTEM]: Your active Supabase RUN_ID for logging is: ${activeRunId}\nUse the 'log_activity' tool to record your milestones.`;
+
+    const reqPayload = {
+        type: "req",
+        id: `orch-${contextId}-${agent}-${Date.now()}`,
+        method: "agent",
+        params: {
+            agentId: agent,
+            message: instructionWithContext,
+            idempotencyKey: `orch-${contextId}-${agent}`
+        }
+    };
+
+    fetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ task, context_id: contextId })
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${process.env.OPENCLAW_GATEWAY_TOKEN || "moltfund-local-dev-token"}`
+        },
+        body: JSON.stringify(reqPayload)
     }).catch(err => {
         console.error(`Failed to invoke agent ${agent}:`, err);
     });

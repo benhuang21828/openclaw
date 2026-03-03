@@ -3,6 +3,7 @@
 import { AgentStatus } from "../components/AgentStatus";
 import { BoardroomLogger } from "../components/BoardroomLogger";
 import { HoldingsManager } from "../components/HoldingsManager";
+import { ResearchRuns } from "../components/ResearchRuns";
 
 import { useState, useEffect } from "react";
 import { Play, Send, LayoutDashboard } from "lucide-react";
@@ -21,7 +22,7 @@ export default function Home() {
     const [thesis, setThesis] = useState("");
     const [messages, setMessages] = useState<any[]>([]);
     const [documents, setDocuments] = useState<any[]>([]);
-    const [isConnected, setIsConnected] = useState(false);
+    const [isConnected, setIsConnected] = useState(true); // Default to true since we are using Supabase/GCS now
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [newDocId, setNewDocId] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -311,30 +312,9 @@ export default function Home() {
                 <div className="lg:col-span-3 space-y-6">
                     <BoardroomLogger messages={messages} />
 
-                    {/* Research History Section */}
-                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
-                        <h3 className="text-lg font-bold mb-4 text-zinc-200">Research History</h3>
-                        <div className="space-y-2">
-                            {documents.map((doc: any) => (
-                                <a
-                                    key={doc.id}
-                                    href={doc.url}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="block p-3 bg-zinc-950 border border-zinc-800 rounded hover:border-blue-500 transition-colors group"
-                                >
-                                    <div className="font-medium text-blue-400 group-hover:text-blue-300 truncate">
-                                        {doc.name}
-                                    </div>
-                                    <div className="text-xs text-zinc-500 mt-1">
-                                        Created: {new Date(doc.createdTime).toLocaleString()}
-                                    </div>
-                                </a>
-                            ))}
-                            {documents.length === 0 && (
-                                <div className="text-zinc-500 italic text-sm">No research reports found.</div>
-                            )}
-                        </div>
+                    {/* Supabase Research Runs Section */}
+                    <div className="mt-8">
+                        <ResearchRuns />
                     </div>
                 </div>
 
