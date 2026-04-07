@@ -1,9 +1,11 @@
-import { randomUUID } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { randomUUID } from "node:crypto";
 import type { ImageContent } from "../agents/command/types.js";
+import type { GatewayHttpChatCompletionsConfig } from "../config/types.gateway.js";
+import type { AuthRateLimiter } from "./auth-rate-limit.js";
+import type { ResolvedGatewayAuth } from "./auth.js";
 import { createDefaultDeps } from "../cli/deps.js";
 import { agentCommandFromIngress } from "../commands/agent.js";
-import type { GatewayHttpChatCompletionsConfig } from "../config/types.gateway.js";
 import { emitAgentEvent, onAgentEvent } from "../infra/agent-events.js";
 import { logWarn } from "../logger.js";
 import { estimateBase64DecodedBytes } from "../media/base64.js";
@@ -23,8 +25,6 @@ import {
   buildAgentMessageFromConversationEntries,
   type ConversationEntry,
 } from "./agent-prompt.js";
-import type { AuthRateLimiter } from "./auth-rate-limit.js";
-import type { ResolvedGatewayAuth } from "./auth.js";
 import { sendJson, setSseHeaders, writeDone } from "./http-common.js";
 import { handleGatewayPostJsonEndpoint } from "./http-endpoint-helpers.js";
 import { resolveGatewayRequestContext, resolveOpenAiCompatModelOverride } from "./http-utils.js";
@@ -512,7 +512,14 @@ export async function handleOpenAiHttpRequest(
             finish_reason: "stop",
           },
         ],
-        usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+        usage: {
+          prompt_tokens: result.meta.agentMeta?.usage?.input ?? 0,
+          completion_tokens: result.meta.agentMeta?.usage?.output ?? 0,
+          total_tokens:
+            result.meta.agentMeta?.usage?.total ??
+            (result.meta.agentMeta?.usage?.input ?? 0) +
+              (result.meta.agentMeta?.usage?.output ?? 0),
+        },
       });
     } catch (err) {
       logWarn(`openai-compat: chat completion failed: ${String(err)}`);
